@@ -1,0 +1,13 @@
+{
+	"admin/services/fzu-network": {
+		"title": "福大校园网",
+		"order": 58,
+		"action": {
+			"type": "view",
+			"path": "fzu-network"
+		},
+		"depends": {
+			"acl": [ "luci-app-fzu-network" ]
+		}
+	}
+}

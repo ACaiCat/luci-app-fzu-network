@@ -1,8 +1,8 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-fzu-network
-PKG_VERSION:=1.2.0
-PKG_RELEASE:=1
+PKG_VERSION:=1.3.0
+PKG_RELEASE:=2
 
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=LICENSE
@@ -16,7 +16,7 @@ define Package/luci-app-fzu-network
 	SUBMENU:=3. Applications
 	TITLE:=LuCI Support for FZU Campus Network
 	PKGARCH:=all
-	DEPENDS:=+curl +jq +luci-compat
+	DEPENDS:=+curl +jq +luci-base
 endef
 
 define Package/luci-app-fzu-network/description
@@ -60,10 +60,10 @@ define Package/luci-app-fzu-network/conffiles
 endef
 
 define Package/luci-app-fzu-network/install
-	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
-	$(INSTALL_DATA) ./files/root/usr/lib/lua/luci/controller/fzu_network.lua $(1)/usr/lib/lua/luci/controller/fzu_network.lua
-	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi
-	$(INSTALL_DATA) ./files/root/usr/lib/lua/luci/model/cbi/fzu-network.lua $(1)/usr/lib/lua/luci/model/cbi/fzu-network.lua
+	$(INSTALL_DIR) $(1)/www/luci-static/resources/view
+	$(INSTALL_DATA) ./files/root/www/luci-static/resources/view/fzu-network.js $(1)/www/luci-static/resources/view/fzu-network.js
+	$(INSTALL_DIR) $(1)/usr/libexec/rpcd
+	$(INSTALL_BIN) ./files/root/usr/libexec/rpcd/luci.fzu-network $(1)/usr/libexec/rpcd/luci.fzu-network
 	$(INSTALL_DIR) $(1)/etc/config
 	$(INSTALL_DATA) ./files/root/etc/config/fzu-network $(1)/etc/config/fzu-network
 	$(INSTALL_DIR) $(1)/etc/init.d
@@ -75,6 +75,10 @@ define Package/luci-app-fzu-network/install
 	$(INSTALL_BIN) ./files/root/etc/uci-defaults/fzu-network $(1)/etc/uci-defaults/fzu-network
 	$(INSTALL_DIR) $(1)/usr/sbin
 	$(INSTALL_BIN) ./files/root/usr/sbin/fzu-network $(1)/usr/sbin/fzu-network
+	$(INSTALL_DIR) $(1)/usr/share/luci/menu.d
+	$(INSTALL_DATA) ./files/root/usr/share/luci/menu.d/luci-app-fzu-network.json $(1)/usr/share/luci/menu.d/luci-app-fzu-network.json
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
+	$(INSTALL_DATA) ./files/root/usr/share/rpcd/acl.d/luci-app-fzu-network.json $(1)/usr/share/rpcd/acl.d/luci-app-fzu-network.json
 endef
 
 $(eval $(call BuildPackage,luci-app-fzu-network))

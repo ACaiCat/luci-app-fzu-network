@@ -1,0 +1,56 @@
+#!/usr/bin/ucode
+'use strict';
+
+import { popen, open } from 'fs';
+
+const args = ARGV;
+
+if (args[0] === 'list') {
+	printf('%J\n', {
+		status: {},
+		clearlog: {}
+	});
+} else if (args[0] === 'call') {
+	if (args[1] === 'status') {
+		let pipe = popen(
+			"curl -s --connect-timeout 3 -X POST " +
+			"-H 'Content-Type: application/x-www-form-urlencoded; charset=UTF-8' " +
+			"--data-urlencode 'userIndex=' " +
+			"'http://172.16.0.46/eportal/InterFace.do?method=getOnlineUserInfo' 2>/dev/null"
+		);
+		let raw = pipe ? pipe.read('all') : null;
+		if (pipe) pipe.close();
+
+		let result = {
+			online: false,
+			msg: '无法连接到认证服务器',
+			user: '-',
+			ip: '-',
+			mac: '-',
+			log: ''
+		};
+
+		if (raw && length(raw) > 0) {
+			try {
+				let data = json(raw);
+				result.online = (data.result === 'success');
+				result.msg    = data.message  ?? '-';
+				result.user   = data.userName ?? '-';
+				result.ip     = data.userIp   ?? '-';
+				result.mac    = data.userMac  ?? '-';
+			} catch(e) {}
+		}
+
+		let lp = popen('tail -n 100 /var/log/fzu-network.log 2>/dev/null');
+		if (lp) {
+			result.log = lp.read('all') ?? '';
+			lp.close();
+		}
+
+		printf('%J\n', result);
+
+	} else if (args[1] === 'clearlog') {
+		let f = open('/var/log/fzu-network.log', 'w');
+		if (f) f.close();
+		printf('{"result":"ok"}\n');	}
+}

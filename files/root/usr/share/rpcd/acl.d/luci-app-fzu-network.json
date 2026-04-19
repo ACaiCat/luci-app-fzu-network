@@ -1,0 +1,17 @@
+{
+	"luci-app-fzu-network": {
+		"description": "Grant access to LuCI app fzu-network",
+		"read": {
+			"ubus": {
+				"luci.fzu-network": [ "status" ]
+			},
+			"uci": [ "fzu-network" ]
+		},
+		"write": {
+			"ubus": {
+				"luci.fzu-network": [ "clearlog" ]
+			},
+			"uci": [ "fzu-network" ]
+		}
+	}
+}
