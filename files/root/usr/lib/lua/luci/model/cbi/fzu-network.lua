@@ -1,5 +1,6 @@
 local fs = require("nixio.fs")
 require("luci.sys")
+local disp = require("luci.dispatcher")
 
 local m, s
 
@@ -115,14 +116,17 @@ function m.on_after_commit(map)
 end
 
 -- 清空日志按钮 + 自动刷新状态的JS
+local url_status  = disp.build_url("admin", "services", "fzu-network", "status")
+local url_clearlog = disp.build_url("admin", "services", "fzu-network", "clearlog")
+
 local refresh_js = s:option(DummyValue, "_refresh_js", "")
 refresh_js.rawhtml = true
 function refresh_js.cfgvalue(self, section)
-	return [[<a href="javascript:void(0)" onclick="clearLog()" style="float:right;font-size:0.85em;">清空日志</a>
+	return string.format([[<a href="javascript:void(0)" onclick="clearLog()" style="float:right;font-size:0.85em;">清空日志</a>
 <script type="text/javascript">
 function clearLog() {
 	var xhr = new XMLHttpRequest();
-	xhr.open('GET', L.url('admin/services/fzu-network/clearlog'), true);
+	xhr.open('GET', '%s', true);
 	xhr.onreadystatechange = function() {
 		if (xhr.readyState === 4) {
 			var logEl = document.querySelector('textarea[id$="sylogtext"]');
@@ -131,14 +135,11 @@ function clearLog() {
 	};
 	xhr.send();
 }
-</script>
-
-<script type="text/javascript">
 (function() {
 	var interval = 5000;
 	function updateStatus() {
 		var xhr = new XMLHttpRequest();
-		xhr.open('GET', L.url('admin/services/fzu-network/status'), true);
+		xhr.open('GET', '%s', true);
 		xhr.onreadystatechange = function() {
 			if (xhr.readyState === 4 && xhr.status === 200) {
 				try {
@@ -163,7 +164,7 @@ function clearLog() {
 	setTimeout(function tick() { updateStatus(); setTimeout(tick, interval); }, interval);
 })();
 </script>
-]]
+]], url_clearlog, url_status)
 end
 
 return m
