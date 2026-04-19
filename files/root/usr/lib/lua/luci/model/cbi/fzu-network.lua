@@ -15,7 +15,6 @@ local info_result, info_msg, info_user, info_ip, info_mac = "未知", "无法连
 
 if status_json and #status_json > 0 then
 	local ok, data = pcall(function()
-		-- 简单解析 JSON 字段
 		local function jget(str, key)
 			return str:match('"' .. key .. '"%s*:%s*"([^"]*)"') or "-"
 		end
@@ -40,16 +39,16 @@ end
 m = Map("fzu-network", "福州大学校园网", "自动登录福州大学校园网认证。")
 
 -- 在线状态展示
-s = m:section(TypedSection, "base", "当前连接状态")
+s = m:section(TypedSection, "base", "状态")
 s.anonymous = true
 
 local st = s:option(DummyValue, "_status", "认证状态")
 st.rawhtml = true
 function st.cfgvalue(self, section)
 	if online then
-		return '<span style="color:green;font-weight:bold;">● 已在线</span>'
+		return '<span style="color:green;font-weight:bold;">在线</span>'
 	else
-		return '<span style="color:red;font-weight:bold;">● 未在线</span> &nbsp; <em>' .. info_msg .. '</em>'
+		return '<span style="color:red;font-weight:bold;">离线</span> &nbsp; <em>' .. info_msg .. '</em>'
 	end
 end
 
@@ -62,8 +61,12 @@ function dv_ip.cfgvalue(self, section) return info_ip end
 local dv_mac = s:option(DummyValue, "_mac", "MAC地址")
 function dv_mac.cfgvalue(self, section) return info_mac end
 
+local spacer = s:option(DummyValue, "_spacer", "")
+spacer.rawhtml = true
+function spacer.cfgvalue(self, section) return '<div style="margin-bottom:8px"></div>' end
+
 -- 基本设置
-s = m:section(TypedSection, "base", "基本设置")
+s = m:section(TypedSection, "base", "设置")
 s.anonymous = true
 
 enable = s:option(Flag, "enable", "启用")
@@ -83,12 +86,12 @@ time.default = "*/5 * * * *"
 user_agent = s:option(Value, "user_agent", "User Agent")
 user_agent.rmempty = false
 
-local spacer = s:option(DummyValue, "_spacer", "")
-spacer.rawhtml = true
-function spacer.cfgvalue(self, section) return '<div style="margin-bottom:8px"></div>' end
+local spacer2 = s:option(DummyValue, "_spacer2", "")
+spacer2.rawhtml = true
+function spacer2.cfgvalue(self, section) return '<div style="margin-bottom:8px"></div>' end
 
 -- 运行日志
-s = m:section(TypedSection, "base", "运行日志")
+s = m:section(TypedSection, "base", "日志")
 s.anonymous = true
 
 local log_file = "/var/log/fzu-network.log"
@@ -111,7 +114,7 @@ function m.on_after_commit(map)
 	luci.sys.call("/etc/init.d/fzu-network restart >/dev/null 2>&1 &")
 end
 
--- 清空日志按钮 + 自动刷新状态的 JS
+-- 清空日志按钮 + 自动刷新状态的JS
 local refresh_js = s:option(DummyValue, "_refresh_js", "")
 refresh_js.rawhtml = true
 function refresh_js.cfgvalue(self, section)
@@ -142,8 +145,8 @@ function clearLog() {
 					var d = JSON.parse(xhr.responseText)[0];
 					var stEl = document.querySelector('[data-name="_status"] .cbi-value-field');
 					if (stEl) stEl.innerHTML = d.online
-						? '<span style="color:green;font-weight:bold;">● 已在线</span>'
-						: '<span style="color:red;font-weight:bold;">● 未在线</span> &nbsp; <em>' + d.msg + '</em>';
+						? '<span style="color:green;font-weight:bold;">在线</span>'
+						: '<span style="color:red;font-weight:bold;">离线</span> &nbsp; <em>' + d.msg + '</em>';
 					var userEl = document.querySelector('[data-name="_user"] .cbi-value-field');
 					if (userEl) userEl.textContent = d.user;
 					var ipEl = document.querySelector('[data-name="_ip"] .cbi-value-field');
