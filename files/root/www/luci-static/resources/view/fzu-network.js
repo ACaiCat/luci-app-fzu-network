@@ -105,7 +105,6 @@ return view.extend({
     var m, s, o;
 
     m = new form.Map("fzu-network", _("福州大学校园网"), _("校园网工程A+"));
-    m.chain("fzu-network");
 
     /* 状态 section */
     s = m.section(form.NamedSection, "base", "base", _("状态"));
@@ -139,11 +138,12 @@ return view.extend({
     o.password = true;
     o.rmempty = false;
 
-    o = s.option(form.Value, "time", _("检查间隔"));
-    o.placeholder = "*/5 * * * *";
-    o.rmempty = false;
-
-    o = s.option(form.Value, "user_agent", _("User-Agent"));
+    o = s.option(
+      form.Value,
+      "user_agent",
+      _("User-Agent"),
+      _("默认为Win11系统自带的Edge浏览器UA，非必要不建议修改"),
+    );
     o.placeholder = "Mozilla/5.0 ...";
     o.rmempty = true;
 
@@ -165,7 +165,7 @@ return view.extend({
         {
           id: "fzu-log",
           style:
-            "max-height:500px;overflow-y:auto;font-size:12px;line-height:1.4;white-space:pre-wrap;word-break:break-all;background:var(--pre-bg,#f8f8f8);border:1px solid #ddd;border-radius:4px;padding:10px;margin:0",
+            "max-height:200px;overflow-y:auto;font-size:12px;line-height:1.4;white-space:pre-wrap;word-break:break-all;background:var(--pre-bg,#f8f8f8);border:1px solid #ddd;border-radius:4px;padding:10px;margin:0",
         },
         status.log || "",
       );
@@ -178,6 +178,7 @@ return view.extend({
         "button",
         {
           class: "btn",
+          style: "background:#e53935;color:#fff;border-color:#e53935",
           click: ui.createHandlerFn(null, function () {
             return callClearLog().then(function () {
               var pre = document.getElementById("fzu-log");
@@ -206,12 +207,6 @@ return view.extend({
         });
       }, 5);
       return node;
-    });
-  },
-
-  handleSaveApply: function (ev, mode) {
-    return this.handleSave(ev).then(function () {
-      return callRestart();
     });
   },
 
