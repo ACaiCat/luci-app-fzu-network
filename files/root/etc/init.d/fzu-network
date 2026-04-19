@@ -13,7 +13,7 @@ restart() {
 
 uci_get_by_name() {
 	local ret=$(uci get $NAME.$1.$2 2>/dev/null)
-	echo ${ret:=$3}
+	printf '%s\n' "${ret:-$3}"
 }
 
 uci_bool_by_name() {

@@ -76,7 +76,7 @@ password = s:option(Value, "password", "密码")
 password.password = true
 password.rmempty = false
 
-time = s:option(Value, "time", "检测间隔", "Crontab 表达式，例如 */5 * * * * 表示每5分钟")
+time = s:option(Value, "time", "检测间隔", "Crontab表达式")
 time.rmempty = false
 time.default = "*/5 * * * *"
 
@@ -115,10 +115,9 @@ end
 local refresh_js = s:option(DummyValue, "_refresh_js", "")
 refresh_js.rawhtml = true
 function refresh_js.cfgvalue(self, section)
-	return [[<button type="button" onclick="clearLog()" style="margin-bottom:8px;padding:4px 12px;">清空日志</button>
+	return [[<a href="javascript:void(0)" onclick="clearLog()" style="float:right;font-size:0.85em;">清空日志</a>
 <script type="text/javascript">
 function clearLog() {
-	if (!confirm('确定要清空运行日志吗？')) return;
 	var xhr = new XMLHttpRequest();
 	xhr.open('GET', L.url('admin/services/fzu-network/clearlog'), true);
 	xhr.onreadystatechange = function() {
