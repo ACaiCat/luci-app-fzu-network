@@ -8,10 +8,6 @@ PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=LICENSE
 PKG_MAINTAINER:=ACaiCat <13110818005@qq.com>
 
-PKG_SOURCE_URL:=https://github.com/ACaiCat/luci-app-fzu-network/archive/refs/tags/v$(PKG_VERSION)
-PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_HASH:=193ee4d0087c4147e233d91afc4c24b1d581da13973374d0f9d5629c6c2f4023
-
 include $(INCLUDE_DIR)/package.mk
 
 define Package/luci-app-fzu-network
