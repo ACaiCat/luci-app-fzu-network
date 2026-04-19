@@ -1,0 +1,79 @@
+name: Build OpenWrt Package
+
+on:
+  push:
+    branches: [ main, master ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            sdk_url: https://downloads.openwrt.org/snapshots/targets/x86/64/openwrt-sdk-x86-64_gcc-14.3.0_musl.Linux-x86_64.tar.zst
+          - arch: aarch64_cortex-a53
+            sdk_url: https://downloads.openwrt.org/snapshots/targets/mediatek/filogic/openwrt-sdk-mediatek-filogic_gcc-14.3.0_musl.Linux-x86_64.tar.zst
+            
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装依赖
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential libncurses5-dev zlib1g-dev \
+            gawk git gettext libssl-dev xsltproc rsync wget unzip python3 zstd
+
+      - name: 下载OpenWrt SDK
+        run: |
+          wget -q "${{ matrix.sdk_url }}" -O /tmp/sdk.tar.zst
+          mkdir /tmp/sdk
+          tar --zstd -xf /tmp/sdk.tar.zst -C /tmp/sdk --strip-components=1
+
+      - name: 添加软件包到SDK
+        run: |
+          cp -r ${{ github.workspace }} /tmp/sdk/package/luci-app-fzu-network
+
+      - name: 编译软件包
+        working-directory: /tmp/sdk
+        run: |
+          make defconfig
+          make package/luci-app-fzu-network/compile V=s -j$(nproc)
+
+      - name: 收集产物
+        run: |
+          mkdir -p ${{ github.workspace }}/artifacts
+          find /tmp/sdk/bin -name "luci-app-fzu-network*.apk" -exec cp {} ${{ github.workspace }}/artifacts/ \;
+          ls -lh ${{ github.workspace }}/artifacts/
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-fzu-network-${{ matrix.arch }}
+          path: artifacts/*.apk
+
+  release:
+    name: 发布Release
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: 下载所有产物
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: 创建Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: CaiBotLiteMod ${{ github.ref_name }}
+          files: artifacts/*.apk
+          generate_release_notes: true

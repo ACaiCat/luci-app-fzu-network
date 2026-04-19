@@ -1,0 +1,27 @@
+# OpenWrt SDK 编译产物
+*.ipk
+*.lmo
+*.o
+*.so
+
+# 编译目录
+build_dir/
+staging_dir/
+bin/
+tmp/
+logs/
+
+# feeds
+feeds/
+dl/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
