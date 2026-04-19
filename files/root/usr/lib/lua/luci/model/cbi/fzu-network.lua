@@ -144,15 +144,15 @@ function clearLog() {
 			if (xhr.readyState === 4 && xhr.status === 200) {
 				try {
 					var d = JSON.parse(xhr.responseText)[0];
-					var stEl = document.querySelector('[data-name="_status"] .cbi-value-field');
+					var stEl = document.querySelector('#cbi-fzu-network-base-_status .cbi-value-field');
 					if (stEl) stEl.innerHTML = d.online
 						? '<span style="color:green;font-weight:bold;">在线</span>'
 						: '<span style="color:red;font-weight:bold;">离线</span> &nbsp; <em>' + d.msg + '</em>';
-					var userEl = document.querySelector('[data-name="_user"] .cbi-value-field');
+					var userEl = document.querySelector('#cbi-fzu-network-base-_user .cbi-value-field');
 					if (userEl) userEl.textContent = d.user;
-					var ipEl = document.querySelector('[data-name="_ip"] .cbi-value-field');
+					var ipEl = document.querySelector('#cbi-fzu-network-base-_ip .cbi-value-field');
 					if (ipEl) ipEl.textContent = d.ip;
-					var macEl = document.querySelector('[data-name="_mac"] .cbi-value-field');
+					var macEl = document.querySelector('#cbi-fzu-network-base-_mac .cbi-value-field');
 					if (macEl) macEl.textContent = d.mac;
 					var logEl = document.querySelector('textarea[id$="sylogtext"]');
 					if (logEl) { logEl.value = d.log; logEl.scrollTop = logEl.scrollHeight; }
