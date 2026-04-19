@@ -2,7 +2,7 @@
 
 福州大学校园网自动认证登录插件
 
-> [!NOTE]
+> [!WARNING]
 > 插件只在ImmortalWrt 25.12.0-rc2上测试过
 
 ## 功能
@@ -16,19 +16,19 @@
 
 1. 使用scp上传apk/ipk文件到路由器，例如：
 
-```shell
-scp luci-app-fzu-network-1.2.0-r1.apk root@192.168.1.1:/tmp/
-# 或者
-scp luci-app-fzu-network-1.2.0-r1.ipk root@192.168.1.1:/tmp/
-```
+  ```shell
+  scp luci-app-fzu-network-1.3.2-r1.apk root@192.168.1.1:/tmp/
+  # 或者
+  scp luci-app-fzu-network_1.3.2-1_all.ipk root@192.168.1.1:/tmp/
+  ```
 
-1. SSH登录路由器，安装apk/ipk：
+2. SSH登录路由器，安装apk/ipk：
 
-```bash
-apk install --allow-untrusted /tmp/luci-app-fzu-network-1.2.0-r1.apk
-# 或者
-opkg install --force-checksum /tmp/luci-app-fzu-network-1.2.0-r1.ipk
-```
+  ```bash
+  apk install --allow-untrusted /tmp/luci-app-fzu-network-1.3.2-r1.apk
+  # 或者
+  opkg install --force-checksum /tmp/luci-app-fzu-network_1.3.2-1_all.ipk
+  ```
 
 ## 配置
 
