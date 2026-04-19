@@ -50,7 +50,10 @@ jobs:
       - name: 收集产物
         run: |
           mkdir -p ${{ github.workspace }}/artifacts
-          find /tmp/sdk/bin -name "luci-app-fzu-network*.apk" -exec cp {} ${{ github.workspace }}/artifacts/ \;
+          find /tmp/sdk/bin -name "luci-app-fzu-network*.apk" | while read f; do
+            base=$(basename "$f" .apk)
+            cp "$f" "${{ github.workspace }}/artifacts/${base}-${{ matrix.arch }}.apk"
+          done
           ls -lh ${{ github.workspace }}/artifacts/
 
       - name: 上传产物
@@ -71,11 +74,10 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts
-          merge-multiple: true
 
       - name: 创建Release
         uses: softprops/action-gh-release@v2
         with:
-          name: CaiBotLiteMod ${{ github.ref_name }}
-          files: artifacts/*.apk
+          name: luci-app-fzu-network ${{ github.ref_name }}
+          files: artifacts/**/*.apk
           generate_release_notes: true
