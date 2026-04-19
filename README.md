@@ -17,19 +17,27 @@
 1. 使用scp上传apk/ipk文件到路由器，例如：
 
 ```shell
-scp luci-app-fzu-network.apk root@192.168.1.1:/tmp/
+scp luci-app-fzu-network-1.2.0-r1.apk root@192.168.1.1:/tmp/
 # 或者
-scp luci-app-fzu-network.ipk root@192.168.1.1:/tmp/
+scp luci-app-fzu-network-1.2.0-r1.ipk root@192.168.1.1:/tmp/
 ```
 
-1. SSH登录路由器，安装apk：
+1. SSH登录路由器，安装apk/ipk：
 
 ```bash
-apk install --allow-untrusted /tmp/luci-app-fzu-network.apk
+apk install --allow-untrusted /tmp/luci-app-fzu-network-1.2.0-r1.apk
 # 或者
-opkg install --force-checksum /tmp/luci-app-fzu-network.ipk
+opkg install --force-checksum /tmp/luci-app-fzu-network-1.2.0-r1.ipk
 ```
 
 ## 配置
 
 在界面「服务 → 福大校园网」中配置
+
+## 组成
+
+- LuCI界界面
+- 后台脚本，负责检测认证状态和执行登录
+- hotplug脚本，在网络接口状态变化时触发登录
+- 定时任务，每5分钟执行一次登录检查
+- 修改TTL为128的防火墙规则，用于绕过代理检测
