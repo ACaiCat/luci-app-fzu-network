@@ -1,0 +1,195 @@
+#!/bin/sh
+
+NAME=fzu-network
+log_file=/var/log/$NAME.log
+
+uci_get_by_name() {
+	local ret=$(uci get $NAME.$1.$2 2>/dev/null)
+	echo ${ret:=$3}
+}
+
+uci_bool_by_name() {
+	case "$(uci_get_by_name $1 $2)" in
+	1 | on | true | yes | enabled) return 0 ;;
+	esac
+	return 1
+}
+
+school_no=$(uci_get_by_name "base" "school_no")
+password=$(uci_get_by_name "base" "password")
+user_agent=$(uci_get_by_name "base" "user_agent")
+
+validate_json() {
+	if ! err=$(echo "$1" | jq . 2>&1 >/dev/null); then
+		echo "Error parsing JSON: $err"
+		return 1
+	fi
+	return 0
+}
+
+# 获取在线状态，输出 JSON 字符串
+get_online_status() {
+	local url='http://172.16.0.46/eportal/InterFace.do?method=getOnlineUserInfo'
+	local response
+	response=$(curl -s -X POST \
+		-H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" \
+		--data-urlencode "userIndex=" \
+		"$url")
+	echo "$response"
+}
+
+# 检查在线状态
+# 返回值: 0=已在线, 1=未在线, 2=等待, 3=请求失败
+check_online_status() {
+	local online_status
+	online_status=$(get_online_status)
+
+	if [ -z "$online_status" ] || ! validate_json "$online_status"; then
+		echo "Error: failed to get online status."
+		return 3
+	fi
+
+	local result
+	result=$(echo "$online_status" | jq -r '.result')
+	userindex=$(echo "$online_status" | jq -r '.userIndex')
+	local message username userid userip usermac
+	message=$(echo "$online_status" | jq -r '.message')
+	username=$(echo "$online_status" | jq -r '.userName')
+	userid=$(echo "$online_status" | jq -r '.userId')
+	userip=$(echo "$online_status" | jq -r '.userIp')
+	usermac=$(echo "$online_status" | jq -r '.userMac')
+
+	echo "Status: $message | User: $username | IP: $userip | MAC: $usermac | DeviceID: $userindex"
+
+	case "$result" in
+	success) return 0 ;;
+	fail) return 1 ;;
+	wait) return 2 ;;
+	*) return 3 ;;
+	esac
+}
+
+get_page_info() {
+	local referer_url=$1
+	local encoded_query_string=$2
+	local JSESSIONID=$3
+
+	local url='http://172.16.0.46/eportal/InterFace.do?method=pageInfo'
+	curl -s -X POST \
+		-H "Host: 172.16.0.46" \
+		-H "Connection: keep-alive" \
+		-H "User-Agent: $user_agent" \
+		-H "DNT: 1" \
+		-H "Accept: */*" \
+		-H "Origin: http://172.16.0.46" \
+		-H "Referer: $referer_url" \
+		-H "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6" \
+		-H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" \
+		--cookie "JSESSIONID=$JSESSIONID" \
+		--data-urlencode "queryString=$encoded_query_string" \
+		"$url" >/dev/null
+}
+
+# 登录
+login() {
+	# 发送请求并获取页面内容
+	local page_content
+	page_content=$(curl -s 'http://123.123.123.123')
+
+	# 从页面内容中提取重定向 URL
+	local redirect_url
+	redirect_url=$(echo "$page_content" | sed -n "s/.*location.href='\([^']*\).*/\1/p")
+
+	if [ -z "$redirect_url" ]; then
+		echo "Login failed: could not get redirect URL."
+		return 1
+	fi
+
+	# 使用重定向 URL 获取 JSESSIONID
+	local cookie_file
+	cookie_file=$(mktemp /tmp/fzu-network-cookies-XXXXXX)
+	curl -s -c "$cookie_file" "$redirect_url" -o /dev/null
+
+	local JSESSIONID
+	JSESSIONID=$(awk '/JSESSIONID/ {print $7}' "$cookie_file")
+	rm -f "$cookie_file"
+
+	# 解析重定向 URL 以获取查询字符串
+	local query_string
+	query_string=$(echo "$redirect_url" | cut -d'?' -f2-)
+
+	# URL 编码查询字符串
+	local encoded_query_string
+	encoded_query_string=$(echo "$query_string" | jq -sRr @uri)
+
+	get_page_info "$redirect_url" "$encoded_query_string" "$JSESSIONID"
+
+	local login_url='http://172.16.0.46/eportal/InterFace.do?method=login'
+	local response
+	response=$(curl -s -X POST \
+		-H "Content-Type: application/x-www-form-urlencoded; charset=UTF-8" \
+		-H "Referer: $redirect_url" \
+		-H "Accept-Language: zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6" \
+		-H "Accept-Encoding: gzip, deflate" \
+		-H "Origin: http://172.16.0.46" \
+		-H "DNT: 1" \
+		-H "Accept: */*" \
+		-H "User-Agent: $user_agent" \
+		-H "Connection: keep-alive" \
+		-H "Host: 172.16.0.46" \
+		--data-urlencode "userId=$school_no" \
+		--data-urlencode "password=$password" \
+		--data-urlencode "queryString=$encoded_query_string" \
+		--data-urlencode "passwordEncrypt=false" \
+		--data-urlencode "validcode=" \
+		--data-urlencode "operatorUserId=" \
+		--data-urlencode "operatorPwd=" \
+		--data-urlencode "service=" \
+		--cookie "JSESSIONID=$JSESSIONID" \
+		"$login_url")
+
+	if validate_json "$response"; then
+		local result
+		result=$(echo "$response" | jq -r '.result')
+		if [ "$result" = "success" ]; then
+			echo "Login successful."
+			return 0
+		else
+			local message
+			message=$(echo "$response" | jq -r '.message')
+			echo "Login failed. Message: $message"
+			return 1
+		fi
+	else
+		echo "Login failed. Response is not valid JSON."
+		return 1
+	fi
+}
+
+# 主逻辑
+main() {
+	local DATE
+	DATE=$(date +'%Y-%m-%d %H:%M:%S')
+	echo "[$DATE] Checking online status..."
+
+	check_online_status
+	local status=$?
+
+	case $status in
+	0)
+		echo "[$DATE] Already online, no action needed."
+		;;
+	1)
+		echo "[$DATE] Not online, attempting login..."
+		login
+		;;
+	2)
+		echo "[$DATE] Authentication status: wait. Will retry next interval."
+		;;
+	3)
+		echo "[$DATE] Failed to reach portal. Network may be unavailable."
+		;;
+	esac
+}
+
+main

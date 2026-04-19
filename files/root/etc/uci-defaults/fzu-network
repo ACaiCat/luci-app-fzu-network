@@ -1,0 +1,10 @@
+#!/bin/sh 
+
+uci -q batch <<-EOF >/dev/null
+	delete ucitrack.@fzu-network[-1]
+	add ucitrack fzu-network
+	set ucitrack.@fzu-network[-1].init=fzu-network
+	commit ucitrack
+EOF
+
+exit 0
