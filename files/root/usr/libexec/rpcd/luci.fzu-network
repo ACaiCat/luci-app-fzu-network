@@ -8,7 +8,8 @@ const args = ARGV;
 if (args[0] === 'list') {
 	printf('%J\n', {
 		status: {},
-		clearlog: {}
+		clearlog: {},
+		restart: {}
 	});
 } else if (args[0] === 'call') {
 	if (args[1] === 'status') {
@@ -52,5 +53,9 @@ if (args[0] === 'list') {
 	} else if (args[1] === 'clearlog') {
 		let f = open('/var/log/fzu-network.log', 'w');
 		if (f) f.close();
-		printf('{"result":"ok"}\n');	}
+		printf('{"result":"ok"}\n');
+	} else if (args[1] === 'restart') {
+		popen('/etc/init.d/fzu-network restart >/dev/null 2>&1 &');
+		printf('{"result":"ok"}\n');
+	}
 }

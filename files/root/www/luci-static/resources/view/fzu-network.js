@@ -17,6 +17,11 @@ var callClearLog = rpc.declare({
   expect: {},
 });
 
+var callRestart = rpc.declare({
+  object: "luci.fzu-network",
+  method: "restart",
+});
+
 function statusRows(st) {
   st = st || {};
   return [
@@ -100,6 +105,7 @@ return view.extend({
     var m, s, o;
 
     m = new form.Map("fzu-network", _("福州大学校园网"), _("校园网工程A+"));
+    m.chain("fzu-network");
 
     /* 状态 section */
     s = m.section(form.NamedSection, "base", "base", _("状态"));
@@ -200,6 +206,12 @@ return view.extend({
         });
       }, 5);
       return node;
+    });
+  },
+
+  handleSaveApply: function (ev, mode) {
+    return this.handleSave(ev).then(function () {
+      return callRestart();
     });
   },
 

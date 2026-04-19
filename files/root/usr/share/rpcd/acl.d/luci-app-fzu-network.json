@@ -9,7 +9,7 @@
 		},
 		"write": {
 			"ubus": {
-				"luci.fzu-network": [ "clearlog" ]
+				"luci.fzu-network": [ "clearlog", "restart" ]
 			},
 			"uci": [ "fzu-network" ]
 		}
