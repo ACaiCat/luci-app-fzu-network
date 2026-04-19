@@ -6,7 +6,11 @@ PKG_RELEASE:=1
 
 PKG_LICENSE:=MIT
 PKG_LICENSE_FILES:=LICENSE
-PKG_MAINTAINER:=ACaiCat
+PKG_MAINTAINER:=ACaiCat <13110818005@qq.com>
+
+PKG_SOURCE_URL:=https://github.com/ACaiCat/luci-app-fzu-network/archive/refs/tags/v$(PKG_VERSION)
+PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+PKG_HASH:=193ee4d0087c4147e233d91afc4c24b1d581da13973374d0f9d5629c6c2f4023
 
 include $(INCLUDE_DIR)/package.mk
 
@@ -40,8 +44,8 @@ if [ -z "$${IPKG_INSTROOT}" ]; then
 		( . /etc/uci-defaults/fzu-network ) && \
 		rm -f /etc/uci-defaults/fzu-network
 	fi
-	/etc/init.d/ttl128 enable
-	/etc/init.d/ttl128 start
+	/etc/init.d/ttl128 enable || true
+	/etc/init.d/ttl128 start || true
 	rm -rf /tmp/luci-indexcache /tmp/luci-modulecache
 fi
 exit 0
@@ -49,9 +53,9 @@ endef
 
 define Package/luci-app-fzu-network/prerm
 #!/bin/sh
-/etc/init.d/fzu-network stop
-/etc/init.d/ttl128 stop
-/etc/init.d/ttl128 disable
+/etc/init.d/fzu-network stop || true
+/etc/init.d/ttl128 stop || true
+/etc/init.d/ttl128 disable || true
 exit 0
 endef
 

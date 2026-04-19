@@ -37,7 +37,7 @@ if status_json and #status_json > 0 then
 	end
 end
 
-m = Map("fzu-network", "福州大学校园网", "自动登录福州大学校园网认证。")
+m = Map("fzu-network", "福州大学校园网", "校园网工程A+")
 
 -- 在线状态展示
 s = m:section(TypedSection, "base", "状态")
