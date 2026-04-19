@@ -40,6 +40,8 @@ if [ -z "$${IPKG_INSTROOT}" ]; then
 		( . /etc/uci-defaults/fzu-network ) && \
 		rm -f /etc/uci-defaults/fzu-network
 	fi
+	/etc/init.d/ttl128 enable
+	/etc/init.d/ttl128 start
 	rm -rf /tmp/luci-indexcache /tmp/luci-modulecache
 fi
 exit 0
@@ -48,6 +50,8 @@ endef
 define Package/luci-app-fzu-network/prerm
 #!/bin/sh
 /etc/init.d/fzu-network stop
+/etc/init.d/ttl128 stop
+/etc/init.d/ttl128 disable
 exit 0
 endef
 
@@ -64,6 +68,9 @@ define Package/luci-app-fzu-network/install
 	$(INSTALL_DATA) ./files/root/etc/config/fzu-network $(1)/etc/config/fzu-network
 	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) ./files/root/etc/init.d/fzu-network $(1)/etc/init.d/fzu-network
+	$(INSTALL_BIN) ./files/root/etc/init.d/ttl128 $(1)/etc/init.d/ttl128
+	$(INSTALL_DIR) $(1)/etc/nftables.d
+	$(INSTALL_DATA) ./files/root/etc/nftables.d/12-mangle-ttl-128.nft $(1)/etc/nftables.d/12-mangle-ttl-128.nft
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/root/etc/uci-defaults/fzu-network $(1)/etc/uci-defaults/fzu-network
 	$(INSTALL_DIR) $(1)/usr/sbin

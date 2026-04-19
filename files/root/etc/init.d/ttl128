@@ -1,0 +1,31 @@
+#!/bin/sh /etc/rc.common
+
+START=19
+STOP=89
+
+apply_iptables() {
+	iptables -t mangle -C POSTROUTING -j TTL --ttl-set 128 2>/dev/null || \
+		iptables -t mangle -A POSTROUTING -j TTL --ttl-set 128
+	iptables -t mangle -C PREROUTING -j TTL --ttl-set 128 2>/dev/null || \
+		iptables -t mangle -A PREROUTING -j TTL --ttl-set 128
+}
+
+remove_iptables() {
+	iptables -t mangle -D POSTROUTING -j TTL --ttl-set 128 2>/dev/null
+	iptables -t mangle -D PREROUTING -j TTL --ttl-set 128 2>/dev/null
+}
+
+start() {
+	# OpenWrt 22.03+ 使用 nftables，由 /etc/nftables.d/ 自动加载，无需 iptables
+	if command -v nft >/dev/null 2>&1 && nft list ruleset >/dev/null 2>&1; then
+		return 0
+	fi
+	apply_iptables
+}
+
+stop() {
+	if command -v nft >/dev/null 2>&1 && nft list ruleset >/dev/null 2>&1; then
+		return 0
+	fi
+	remove_iptables
+}
