@@ -1,0 +1,11 @@
+table ip fzu-network {
+    chain prerouting_ttl {
+        type filter hook prerouting priority -150; policy accept;
+        counter ip ttl set 128
+    }
+    
+    chain postrouting_ttl {
+        type filter hook postrouting priority -150; policy accept;
+        counter ip ttl set 128
+    }
+}

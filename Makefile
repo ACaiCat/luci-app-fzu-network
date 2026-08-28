@@ -70,7 +70,7 @@ define Package/luci-app-fzu-network/install
 	$(INSTALL_BIN) ./files/root/etc/init.d/fzu-network $(1)/etc/init.d/fzu-network
 	$(INSTALL_BIN) ./files/root/etc/init.d/ttl128 $(1)/etc/init.d/ttl128
 	$(INSTALL_DIR) $(1)/etc/nftables.d
-	$(INSTALL_DATA) ./files/root/etc/nftables.d/12-mangle-ttl-128.nft $(1)/etc/nftables.d/12-mangle-ttl-128.nft
+	$(INSTALL_DATA) ./files/root/etc/nftables.d/12-fzu-network-ttl-128.nft $(1)/etc/nftables.d/12-fzu-network-ttl-128.nft
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
 	$(INSTALL_BIN) ./files/root/etc/uci-defaults/fzu-network $(1)/etc/uci-defaults/fzu-network
 	$(INSTALL_DIR) $(1)/usr/sbin
