@@ -23,9 +23,9 @@ jobs:
           sudo apt-get install -y build-essential libncurses5-dev zlib1g-dev \
             gawk git gettext libssl-dev xsltproc rsync wget unzip python3 zstd
 
-      - name: 下载 OpenWrt SDK (snapshot)
+      - name: 下载 OpenWrt SDK (25.12.5)
         run: |
-          wget -q "https://downloads.openwrt.org/snapshots/targets/x86/64/openwrt-sdk-x86-64_gcc-14.3.0_musl.Linux-x86_64.tar.zst" -O /tmp/sdk.tar.zst
+          wget -q "https://downloads.openwrt.org/releases/25.12.5/targets/x86/64/openwrt-sdk-25.12.5-x86-64_gcc-14.3.0_musl.Linux-x86_64.tar.zst" -O /tmp/sdk.tar.zst
           mkdir /tmp/sdk
           tar --zstd -xf /tmp/sdk.tar.zst -C /tmp/sdk --strip-components=1
 
