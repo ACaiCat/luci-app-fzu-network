@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-fzu-network
-PKG_VERSION:=1.4.1
+PKG_VERSION:=1.4.2
 PKG_RELEASE:=1
 
 PKG_LICENSE:=MIT
@@ -48,6 +48,9 @@ if [ -z "$${IPKG_INSTROOT}" ]; then
 	/etc/init.d/fzu-network enable || true
 	/etc/init.d/fzu-network start || true
 	/etc/init.d/ucitrack restart || true
+	# rpcd 只在启动时扫描一次 /usr/libexec/rpcd/ 并把方法注册进 ubus，
+	# 不 reload 的话新加的 ubus 方法要重启路由器才生效
+	/etc/init.d/rpcd reload || true
 	rm -rf /tmp/luci-indexcache /tmp/luci-modulecache
 fi
 exit 0

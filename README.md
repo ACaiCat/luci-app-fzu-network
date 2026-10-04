@@ -19,17 +19,17 @@
 1. 使用scp上传apk/ipk文件到路由器，例如：
 
   ```shell
-  scp luci-app-fzu-network-1.4.1-r1.apk root@192.168.1.1:/tmp/
+  scp luci-app-fzu-network-1.4.2-r1.apk root@192.168.1.1:/tmp/
   # 或者
-  scp luci-app-fzu-network_1.4.1-1_all.ipk root@192.168.1.1:/tmp/
+  scp luci-app-fzu-network_1.4.2-1_all.ipk root@192.168.1.1:/tmp/
   ```
 
 2. SSH登录路由器，安装apk/ipk：
 
   ```bash
-  apk add --allow-untrusted /tmp/luci-app-fzu-network-1.4.1-r1.apk
+  apk add --allow-untrusted /tmp/luci-app-fzu-network-1.4.2-r1.apk
   # 或者
-  opkg install --force-checksum /tmp/luci-app-fzu-network_1.4.1-1_all.ipk
+  opkg install --force-checksum /tmp/luci-app-fzu-network_1.4.2-1_all.ipk
   ```
 
 ## 配置
