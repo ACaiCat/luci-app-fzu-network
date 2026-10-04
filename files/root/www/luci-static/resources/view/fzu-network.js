@@ -170,17 +170,14 @@ return view.extend({
             return callCheck()
               .then(function (res) {
                 res = res || {};
-                ui.addNotification(
-                  null,
-                  E(
-                    "p",
-                    {},
-                    res.result === "ok"
-                      ? _("已让进程立即检查，未在线时会自动登录")
-                      : res.msg || _("下发命令失败"),
-                  ),
-                  res.result === "ok" ? "info" : "error",
-                );
+                /* 成功不打扰，只在失败时提示 */
+                if (res.result !== "ok") {
+                  ui.addNotification(
+                    null,
+                    E("p", {}, res.msg || _("下发命令失败")),
+                    "error",
+                  );
+                }
               })
               .catch(function (err) {
                 ui.addNotification(
@@ -218,12 +215,7 @@ return view.extend({
     o.password = true;
     o.rmempty = false;
 
-    o = s.option(
-      form.Value,
-      "user_agent",
-      _("User-Agent"),
-      _("默认为Win11系统自带的Edge浏览器UA，非必要不建议修改"),
-    );
+    o = s.option(form.Value, "user_agent", _("User-Agent"));
     o.placeholder = "Mozilla/5.0 ...";
     o.rmempty = true;
 
