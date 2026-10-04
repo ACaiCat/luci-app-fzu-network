@@ -1,4 +1,4 @@
-#!/bin/sh 
+#!/bin/sh
 
 uci -q batch <<-EOF >/dev/null
 	delete ucitrack.@fzu-network[-1]
@@ -6,5 +6,11 @@ uci -q batch <<-EOF >/dev/null
 	set ucitrack.@fzu-network[-1].init=fzu-network
 	commit ucitrack
 EOF
+
+# 旧版本使用 cron 调度, 升级后清理掉遗留的 crontab 条目
+if [ -f /etc/crontabs/root ] && grep -q fzu-network /etc/crontabs/root; then
+	sed -i '/fzu-network/d' /etc/crontabs/root
+	/etc/init.d/cron reload 2>/dev/null
+fi
 
 exit 0

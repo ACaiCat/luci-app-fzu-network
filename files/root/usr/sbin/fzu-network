@@ -1,7 +1,26 @@
 #!/bin/sh
+#
+# 福州大学校园网自动认证
+#
+# 常驻进程模式：进程内部循环按间隔检查在线状态并自动登录，
+# 外部命令通过命名管道 (FIFO) 发送给进程，无需 cron。
 
 NAME=fzu-network
-log_file=/var/log/$NAME.log
+# 日志由 init 脚本重定向到 /var/log/fzu-network.log
+PID_FILE=/var/run/$NAME.pid
+FIFO=/var/run/$NAME.fifo
+
+DEFAULT_INTERVAL=180 # 默认检查间隔（秒）
+MIN_INTERVAL=10
+
+school_no=
+password=
+user_agent=
+interval=
+
+log() {
+	echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*"
+}
 
 uci_get_by_name() {
 	local ret=$(uci get $NAME.$1.$2 2>/dev/null)
@@ -15,9 +34,29 @@ uci_bool_by_name() {
 	return 1
 }
 
-school_no=$(uci_get_by_name "base" "school_no")
-password=$(uci_get_by_name "base" "password")
-user_agent=$(uci_get_by_name "base" "user_agent")
+# 读取（或重新读取）UCI 配置
+load_config() {
+	school_no=$(uci_get_by_name "base" "school_no")
+	password=$(uci_get_by_name "base" "password")
+	user_agent=$(uci_get_by_name "base" "user_agent")
+
+	interval=$(uci_get_by_name "base" "interval")
+
+	# 兼容旧版本的 cron 表达式选项 time，例如 "*/3 * * * *" -> 180 秒
+	if [ -z "$interval" ]; then
+		local cron_min=$(uci_get_by_name "base" "time" | awk '{print $1}')
+		case "$cron_min" in
+		\*/*) interval=$((${cron_min#*/} * 60)) ;;
+		esac
+	fi
+
+	case "$interval" in
+	'' | *[!0-9]*) interval=$DEFAULT_INTERVAL ;;
+	esac
+	[ "$interval" -lt "$MIN_INTERVAL" ] && interval=$MIN_INTERVAL
+
+	return 0
+}
 
 validate_json() {
 	if ! err=$(echo "$1" | jq . 2>&1 >/dev/null); then
@@ -166,30 +205,164 @@ login() {
 	fi
 }
 
-# 主逻辑
-main() {
-	local DATE
-	DATE=$(date +'%Y-%m-%d %H:%M:%S')
-	echo "[$DATE] 检查在线状态..."
+# 执行一轮检查
+do_check() {
+	log "检查在线状态..."
 
 	check_online_status
 	local status=$?
 
 	case $status in
 	0)
-		echo "[$DATE] 已在线，无需操作."
+		log "已在线，无需操作."
 		;;
 	1)
-		echo "[$DATE] 未在线，尝试登录..."
+		log "未在线，尝试登录..."
 		login
 		;;
 	2)
-		echo "[$DATE] 认证状态: 等待中，将在下一个间隔重试."
+		log "认证状态: 等待中，将在下一个间隔重试."
 		;;
 	3)
-		echo "[$DATE] 无法访问门户，网络可能不可用."
+		log "无法访问门户，网络可能不可用."
 		;;
 	esac
+	return $status
 }
 
-main
+# ---------------- 命令通道 ----------------
+
+# 处理来自 FIFO 的外部命令，返回非 0 表示要求进程退出
+handle_cmd() {
+	case "$1" in
+	check)
+		log "收到命令: check"
+		do_check
+		;;
+	login)
+		log "收到命令: login"
+		login
+		;;
+	reload)
+		log "收到命令: reload, 正在重新加载配置..."
+		load_config
+		log "配置已重新加载, 检查间隔 ${interval} 秒."
+		;;
+	stop | quit | exit)
+		log "收到命令: stop"
+		return 1
+		;;
+	"") ;;
+	*)
+		log "收到未知命令: $1"
+		;;
+	esac
+	return 0
+}
+
+# 向守护进程发送命令
+send_cmd() {
+	local pid
+	[ -p "$FIFO" ] || {
+		echo "命令管道 $FIFO 不存在, 守护进程未运行." >&2
+		return 1
+	}
+	pid=$(cat "$PID_FILE" 2>/dev/null)
+	[ -n "$pid" ] && kill -0 "$pid" 2>/dev/null || {
+		echo "守护进程未运行." >&2
+		return 1
+	}
+	printf '%s\n' "$1" >"$FIFO"
+}
+
+# ---------------- 守护进程 ----------------
+
+daemon_cleanup() {
+	rm -f "$PID_FILE" "$FIFO"
+	trap - TERM INT
+	exit 0
+}
+
+run_daemon() {
+	# 已有实例在运行则拒绝启动（PID 与自身相同时说明是 init 脚本代为写入的）
+	local oldpid=$(cat "$PID_FILE" 2>/dev/null)
+	if [ -n "$oldpid" ] && [ "$oldpid" != "$$" ] && kill -0 "$oldpid" 2>/dev/null; then
+		echo "守护进程已在运行 (PID $oldpid)." >&2
+		return 1
+	fi
+
+	rm -f "$FIFO"
+	mkfifo "$FIFO" || {
+		echo "无法创建命令管道 $FIFO." >&2
+		return 1
+	}
+	# 只有 root 能向进程发命令
+	chmod 600 "$FIFO"
+
+	# 以读写方式打开管道：open 不会阻塞，且进程存活期间读端不会出现 EOF
+	exec 3<>"$FIFO" || {
+		rm -f "$FIFO"
+		return 1
+	}
+
+	echo $$ >"$PID_FILE"
+	trap 'daemon_cleanup' TERM INT
+
+	log "守护进程已启动 (PID $$), 检查间隔 ${interval} 秒, 命令管道 ${FIFO}."
+
+	do_check
+
+	local cmd
+	while :; do
+		cmd=
+		if read -t "$interval" cmd <&3; then
+			handle_cmd "$cmd" || break
+			continue
+		fi
+		# 超时返回：若残留了未换行的数据则按命令处理，否则执行例行检查
+		if [ -n "$cmd" ]; then
+			handle_cmd "$cmd" || break
+			continue
+		fi
+		do_check
+	done
+
+	log "守护进程退出."
+	daemon_cleanup
+}
+
+usage() {
+	cat <<EOF
+用法: $NAME <命令>
+
+  daemon          以守护进程方式运行（由 init 脚本调用）
+  check           执行一次在线检查（前台运行）
+  login           执行一次登录（前台运行）
+  cmd <命令>      向守护进程发送命令
+                  命令: check | login | reload | stop
+  stop            通知守护进程退出
+EOF
+}
+
+load_config
+
+case "$1" in
+daemon) run_daemon ;;
+check | "") do_check ;;
+login) login ;;
+cmd)
+	[ -n "$2" ] || {
+		usage
+		exit 1
+	}
+	send_cmd "$2"
+	;;
+stop) send_cmd stop ;;
+help | -h | --help) usage ;;
+*)
+	usage
+	exit 1
+	;;
+esac
+
+exit $?

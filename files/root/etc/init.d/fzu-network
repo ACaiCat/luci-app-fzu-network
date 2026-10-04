@@ -2,14 +2,16 @@
 
 START=80
 NAME=fzu-network
-EXTRA_COMMANDS="status"
-EXTRA_HELP="        status          Service status"
+EXTRA_COMMANDS="status check reload_config"
+EXTRA_HELP="        status          Service status
+        check           Trigger an immediate check
+        reload_config   Reload account and interval from UCI"
+
+LOG_FILE=/var/log/$NAME.log
+PID_FILE=/var/run/$NAME.pid
+FIFO=/var/run/$NAME.fifo
 
 NE_TIPS='网络认证服务已停止'
-
-restart() {
-	start
-}
 
 uci_get_by_name() {
 	local ret=$(uci get $NAME.$1.$2 2>/dev/null)
@@ -18,19 +20,33 @@ uci_get_by_name() {
 
 uci_bool_by_name() {
 	case "$(uci_get_by_name $1 $2)" in
-		1|on|true|yes|enabled) return 0;;
+	1 | on | true | yes | enabled) return 0 ;;
 	esac
 	return 1
 }
 
+daemon_pid() {
+	cat "$PID_FILE" 2>/dev/null
+}
+
+daemon_running() {
+	local pid=$(daemon_pid)
+	[ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+}
+
+# 让 WAN 拨号成功后立刻检查一次
 add_hotplug() {
-	cat <<EOF > "/etc/hotplug.d/iface/${START}-${NAME}"
-#!/bin/sh /etc/rc.common
+	cat <<'EOF' >"/etc/hotplug.d/iface/${START}-${NAME}"
+#!/bin/sh
+# WAN 上线后通知 fzu-network 守护进程立即检查一次
 
-[ "Z\$ACTION" = "Zifup" -a "Z\$INTERFACE" = "Zwan" ] || exit 0
+[ "$ACTION" = "ifup" -a "$INTERFACE" = "wan" ] || exit 0
 
-DATE=\$(date +'%Y-%m-%d %H:%M:%S')
-( sleep 10 && ( echo "\$DATE IFUP-WAN" && /usr/sbin/fzu-network ) >> /var/log/fzu-network.log 2>&1 ) &
+(
+	sleep 10
+	echo "[$(date +'%Y-%m-%d %H:%M:%S')] IFUP-WAN 触发检查"
+	/usr/sbin/fzu-network cmd check
+) >> /var/log/fzu-network.log 2>&1 &
 
 exit 0
 EOF
@@ -38,40 +54,80 @@ EOF
 }
 
 start() {
-	$(uci_bool_by_name base enable) || {
+	uci_bool_by_name base enable || {
 		stop
 		return 0
 	}
 
 	add_hotplug
 
-	sed -i "/${NE_TIPS}/d" /var/log/fzu-network.log
+	daemon_running && {
+		echo "服务已在运行 (PID $(daemon_pid))"
+		return 0
+	}
 
-	local cron_expr=$(uci_get_by_name base time "*/3 * * * *")
+	# 清理上一次停止时写入的提示行（此时没有进程持有日志文件，可安全重写）
+	sed -i "/${NE_TIPS}/d" "$LOG_FILE" 2>/dev/null
 
-	[ -f /etc/crontabs/root ] || mkdir -p /etc/crontabs && touch /etc/crontabs/root
-	sed -i '/fzu-network/d' /etc/crontabs/root
-	echo "$cron_expr /usr/sbin/fzu-network >> /var/log/fzu-network.log 2>&1" >> /etc/crontabs/root
-	if [ "$(/etc/init.d/cron status)" = "running" ]; then
-		/etc/init.d/cron reload
-	fi
-
-	( /usr/sbin/fzu-network >> /var/log/fzu-network.log 2>&1 ) &
+	/usr/sbin/fzu-network daemon </dev/null >>"$LOG_FILE" 2>&1 &
 }
 
 stop() {
-	rm -rf "/etc/hotplug.d/iface/${START}-${NAME}"
-	sed -i '/fzu-network/d' /etc/crontabs/root >/dev/null 2>&1
-	if [ "$(/etc/init.d/cron status)" = "running" ]; then
-		/etc/init.d/cron reload
+	rm -f "/etc/hotplug.d/iface/${START}-${NAME}"
+
+	local pid=$(daemon_pid)
+	if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+		kill -TERM "$pid" 2>/dev/null
+		local i=0
+		while [ $i -lt 5 ] && kill -0 "$pid" 2>/dev/null; do
+			sleep 1
+			i=$((i + 1))
+		done
+		kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null
 	fi
-	echo "${NE_TIPS}" > /var/log/fzu-network.log
+
+	rm -f "$PID_FILE" "$FIFO"
+	echo "${NE_TIPS}" >"$LOG_FILE"
+}
+
+restart() {
+	stop
+	start
+}
+
+check() {
+	daemon_running || {
+		echo "服务未运行." >&2
+		return 1
+	}
+	/usr/sbin/fzu-network cmd check
+}
+
+reload_config() {
+	daemon_running || {
+		echo "服务未运行." >&2
+		return 1
+	}
+	/usr/sbin/fzu-network cmd reload
+}
+
+# 配置保存后（若由 ucitrack 触发 reload）：
+# 未启用就停止，进程在跑就热重载配置，否则按启用状态拉起
+reload() {
+	if ! uci_bool_by_name base enable; then
+		stop
+	elif daemon_running; then
+		reload_config
+	else
+		start
+	fi
 }
 
 status() {
-	if [ "$(/etc/init.d/cron status)" != "running" ]; then
-		echo "inactive" && false
-	else
-		grep -q fzu-network /etc/crontabs/root && echo "running" || echo "inactive" && false
+	if daemon_running; then
+		echo "running"
+		return 0
 	fi
+	echo "inactive"
+	return 1
 }
