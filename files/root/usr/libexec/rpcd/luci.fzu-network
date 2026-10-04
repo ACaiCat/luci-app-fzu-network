@@ -4,12 +4,34 @@
 import { popen, open } from 'fs';
 
 const args = ARGV;
+const STATE_FILE = '/var/run/fzu-network.state';
+
+// 从状态文件读取下次检查的剩余秒数和当前生效的间隔
+// 返回 { remain, interval }，进程未运行时 remain 为 -1
+function read_state() {
+	let f = open(STATE_FILE, 'r');
+	if (!f) return { remain: -1, interval: 0 };
+
+	let raw = f.read('all');
+	f.close();
+	if (!raw) return { remain: -1, interval: 0 };
+
+	let parts = split(trim(raw), /\s+/);
+	let next = +parts[0];
+	let interval = +(parts[1] ?? 0);
+	if (!next) return { remain: -1, interval: interval };
+
+	let remain = next - time();
+	return { remain: (remain > 0 ? remain : 0), interval: interval };
+}
 
 if (args[0] === 'list') {
 	printf('%J\n', {
 		status: {},
 		clearlog: {},
-		restart: {}
+		restart: {},
+		check: {},
+		reload: {}
 	});
 } else if (args[0] === 'call') {
 	if (args[1] === 'status') {
@@ -28,6 +50,8 @@ if (args[0] === 'list') {
 			user: '-',
 			ip: '-',
 			mac: '-',
+			remain: -1,
+			interval: 0,
 			log: ''
 		};
 
@@ -42,6 +66,10 @@ if (args[0] === 'list') {
 			} catch(e) {}
 		}
 
+		let st = read_state();
+		result.remain = st.remain;
+		result.interval = st.interval;
+
 		let lp = popen('tail -n 100 /var/log/fzu-network.log 2>/dev/null');
 		if (lp) {
 			result.log = lp.read('all') ?? '';
@@ -53,6 +81,19 @@ if (args[0] === 'list') {
 	} else if (args[1] === 'clearlog') {
 		let f = open('/var/log/fzu-network.log', 'w');
 		if (f) f.close();
+		printf('{"result":"ok"}\n');
+	} else if (args[1] === 'check') {
+		// 通知守护进程立即检查一次（未在线才登录）
+		let p = popen('/usr/sbin/fzu-network cmd check 2>&1');
+		let out = p ? trim(p.read('all') ?? '') : '无法执行命令';
+		if (p) p.close();
+		printf('%J\n', {
+			result: length(out) ? 'error' : 'ok',
+			msg: out
+		});
+	} else if (args[1] === 'reload') {
+		// 配置变更后让守护进程重读（服务未运行时按启用状态拉起）
+		popen('/etc/init.d/fzu-network reload >/dev/null 2>&1 &');
 		printf('{"result":"ok"}\n');
 	} else if (args[1] === 'restart') {
 		popen('/etc/init.d/fzu-network restart >/dev/null 2>&1 &');

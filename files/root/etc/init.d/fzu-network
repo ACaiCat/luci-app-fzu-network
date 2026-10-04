@@ -10,6 +10,7 @@ EXTRA_HELP="        status          Service status
 LOG_FILE=/var/log/$NAME.log
 PID_FILE=/var/run/$NAME.pid
 FIFO=/var/run/$NAME.fifo
+STATE_FILE=/var/run/$NAME.state
 
 NE_TIPS='网络认证服务已停止'
 
@@ -86,7 +87,7 @@ stop() {
 		kill -0 "$pid" 2>/dev/null && kill -9 "$pid" 2>/dev/null
 	fi
 
-	rm -f "$PID_FILE" "$FIFO"
+	rm -f "$PID_FILE" "$FIFO" "$STATE_FILE"
 	echo "${NE_TIPS}" >"$LOG_FILE"
 }
 

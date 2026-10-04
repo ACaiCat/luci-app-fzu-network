@@ -1,5 +1,7 @@
 #!/bin/sh
 
+# 旧版 ucitrack (OpenWrt 23.05 及更早) 读取 /etc/config/ucitrack，
+# 新版 (24.10+) 改读 /usr/share/ucitrack/*.json，这里写一份以兼容旧版。
 uci -q batch <<-EOF >/dev/null
 	delete ucitrack.@fzu-network[-1]
 	add ucitrack fzu-network

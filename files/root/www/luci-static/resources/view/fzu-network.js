@@ -22,6 +22,26 @@ var callRestart = rpc.declare({
   method: "restart",
 });
 
+var callCheck = rpc.declare({
+  object: "luci.fzu-network",
+  method: "check",
+});
+
+function fetchStatus() {
+  return callStatus().then(function (st) {
+    return st || {};
+  });
+}
+
+/* 把最新状态写回已被渲染的表格和日志框 */
+function applyStatus(st) {
+  st = st || {};
+  var tbl = document.getElementById("fzu-status-table");
+  if (tbl) dom.content(tbl, statusRows(st));
+  var pre = document.getElementById("fzu-log");
+  if (pre) pre.textContent = st.log || "";
+}
+
 function statusRows(st) {
   st = st || {};
   return [
@@ -91,14 +111,38 @@ function statusRows(st) {
         st.mac || "-",
       ),
     ]),
+    E("tr", { class: "tr" }, [
+      E(
+        "td",
+        {
+          class: "td left",
+          style: "width:10em;white-space:nowrap;padding-left:12px",
+        },
+        _("下次检查"),
+      ),
+      E(
+        "td",
+        { class: "td", style: "text-align:left;padding-left:12px" },
+        st.remain >= 0
+          ? [
+              st.remain + _(" 秒后"),
+              st.interval
+                ? E(
+                    "em",
+                    { style: "color:#888;margin-left:8px" },
+                    _("间隔") + " " + st.interval + _(" 秒"),
+                  )
+                : "",
+            ]
+          : E("span", { style: "color:#888" }, _("服务未运行")),
+      ),
+    ]),
   ];
 }
 
 return view.extend({
   load: function () {
-    return callStatus().then(function (st) {
-      return st || {};
-    });
+    return fetchStatus();
   },
 
   render: function (status) {
@@ -124,6 +168,51 @@ return view.extend({
       );
     };
 
+    o = s.option(form.DummyValue, "_check_btn");
+    o.rawhtml = true;
+    o.cfgvalue = function () {
+      return E(
+        "button",
+        {
+          class: "btn cbi-button cbi-button-action",
+          click: ui.createHandlerFn(null, function () {
+            return callCheck()
+              .then(function (res) {
+                res = res || {};
+                ui.addNotification(
+                  null,
+                  E(
+                    "p",
+                    {},
+                    res.result === "ok"
+                      ? _("已让进程立即检查，未在线时会自动登录")
+                      : res.msg || _("下发命令失败"),
+                  ),
+                  res.result === "ok" ? "info" : "error",
+                );
+              })
+              .catch(function (err) {
+                ui.addNotification(
+                  null,
+                  E("p", {}, _("下发命令失败") + ": " + err),
+                  "error",
+                );
+              })
+              .then(function () {
+                /* 命令是异步下发的，稍等一会再取状态 */
+                return new Promise(function (resolve) {
+                  window.setTimeout(resolve, 1500);
+                });
+              })
+              .then(function () {
+                return fetchStatus().then(applyStatus);
+              });
+          }),
+        },
+        _("刷新登录"),
+      );
+    };
+
     /* 设置 section */
     s = m.section(form.NamedSection, "base", "base", _("设置"));
     s.anonymous = true;
@@ -145,6 +234,16 @@ return view.extend({
       _("默认为Win11系统自带的Edge浏览器UA，非必要不建议修改"),
     );
     o.placeholder = "Mozilla/5.0 ...";
+    o.rmempty = true;
+
+    o = s.option(
+      form.Value,
+      "interval",
+      _("检查间隔"),
+      _("两次自动检测之间的间隔，单位秒，范围 10-86400，留空则使用默认值 180"),
+    );
+    o.datatype = "range(10, 86400)";
+    o.placeholder = "180";
     o.rmempty = true;
 
     o = s.option(form.DummyValue, "_spacer_ua");
@@ -198,13 +297,7 @@ return view.extend({
 
     return m.render().then(function (node) {
       poll.add(function () {
-        return callStatus().then(function (st) {
-          st = st || {};
-          var tbl = document.getElementById("fzu-status-table");
-          if (tbl) dom.content(tbl, statusRows(st));
-          var pre = document.getElementById("fzu-log");
-          if (pre) pre.textContent = st.log || "";
-        });
+        return fetchStatus().then(applyStatus);
       }, 5);
       return node;
     });

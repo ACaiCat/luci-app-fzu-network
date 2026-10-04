@@ -9,6 +9,8 @@ NAME=fzu-network
 # 日志由 init 脚本重定向到 /var/log/fzu-network.log
 PID_FILE=/var/run/$NAME.pid
 FIFO=/var/run/$NAME.fifo
+# 记录下次例行检查的时间戳和当前生效的间隔，供 LuCI 显示
+STATE_FILE=/var/run/$NAME.state
 
 DEFAULT_INTERVAL=180 # 默认检查间隔（秒）
 MIN_INTERVAL=10
@@ -278,12 +280,20 @@ send_cmd() {
 # ---------------- 守护进程 ----------------
 
 daemon_cleanup() {
-	rm -f "$PID_FILE" "$FIFO"
+	rm -f "$PID_FILE" "$FIFO" "$STATE_FILE"
 	trap - TERM INT
 	exit 0
 }
 
 run_daemon() {
+	# 定时等待依赖 read -t（busybox ash 支持，超时返回 1）。若这个 shell 不认 -t，
+	# 下面的循环会退化成空转并疯狂请求认证服务器，所以先检测、不支持就直接退出。
+	read -t 1 __probe </dev/null 2>/dev/null
+	if [ $? -gt 1 ]; then
+		echo "错误: 当前 shell 不支持 read -t, 无法以守护进程方式运行." >&2
+		return 1
+	fi
+
 	# 已有实例在运行则拒绝启动（PID 与自身相同时说明是 init 脚本代为写入的）
 	local oldpid=$(cat "$PID_FILE" 2>/dev/null)
 	if [ -n "$oldpid" ] && [ "$oldpid" != "$$" ] && kill -0 "$oldpid" 2>/dev/null; then
@@ -314,6 +324,9 @@ run_daemon() {
 
 	local cmd
 	while :; do
+		# 本轮等待结束时就是下次例行检查的时间
+		echo "$(($(date +%s) + interval)) $interval" >"$STATE_FILE"
+
 		cmd=
 		if read -t "$interval" cmd <&3; then
 			handle_cmd "$cmd" || break

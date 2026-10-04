@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-fzu-network
-PKG_VERSION:=1.4.0
+PKG_VERSION:=1.4.1
 PKG_RELEASE:=1
 
 PKG_LICENSE:=MIT
@@ -42,6 +42,12 @@ if [ -z "$${IPKG_INSTROOT}" ]; then
 	fi
 	/etc/init.d/ttl128 enable || true
 	/etc/init.d/ttl128 start || true
+	# 配置保存后自动 reload 依赖 ucitrack 触发器，而 ucitrack 只给已 enable 的
+	# init 脚本注册触发器；start() 内部仍会检查 UCI 的 enable 开关，所以提前
+	# enable 不会绕过开关启动服务。
+	/etc/init.d/fzu-network enable || true
+	/etc/init.d/fzu-network start || true
+	/etc/init.d/ucitrack restart || true
 	rm -rf /tmp/luci-indexcache /tmp/luci-modulecache
 fi
 exit 0
@@ -50,6 +56,7 @@ endef
 define Package/luci-app-fzu-network/prerm
 #!/bin/sh
 /etc/init.d/fzu-network stop || true
+/etc/init.d/fzu-network disable || true
 /etc/init.d/ttl128 stop || true
 /etc/init.d/ttl128 disable || true
 exit 0
@@ -77,6 +84,8 @@ define Package/luci-app-fzu-network/install
 	$(INSTALL_BIN) ./files/root/usr/sbin/fzu-network $(1)/usr/sbin/fzu-network
 	$(INSTALL_DIR) $(1)/usr/share/luci/menu.d
 	$(INSTALL_DATA) ./files/root/usr/share/luci/menu.d/luci-app-fzu-network.json $(1)/usr/share/luci/menu.d/luci-app-fzu-network.json
+	$(INSTALL_DIR) $(1)/usr/share/ucitrack
+	$(INSTALL_DATA) ./files/root/usr/share/ucitrack/luci-app-fzu-network.json $(1)/usr/share/ucitrack/luci-app-fzu-network.json
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
 	$(INSTALL_DATA) ./files/root/usr/share/rpcd/acl.d/luci-app-fzu-network.json $(1)/usr/share/rpcd/acl.d/luci-app-fzu-network.json
 endef
