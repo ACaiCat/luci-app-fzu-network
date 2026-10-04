@@ -124,16 +124,7 @@ function statusRows(st) {
         "td",
         { class: "td", style: "text-align:left;padding-left:12px" },
         st.remain >= 0
-          ? [
-              st.remain + _(" 秒后"),
-              st.interval
-                ? E(
-                    "em",
-                    { style: "color:#888;margin-left:8px" },
-                    _("间隔") + " " + st.interval + _(" 秒"),
-                  )
-                : "",
-            ]
+          ? st.remain + _(" 秒后")
           : E("span", { style: "color:#888" }, _("服务未运行")),
       ),
     ]),
@@ -240,7 +231,7 @@ return view.extend({
       form.Value,
       "interval",
       _("检查间隔"),
-      _("两次自动检测之间的间隔，单位秒，范围 10-86400，留空则使用默认值 180"),
+      _("单位秒，范围 10-86400"),
     );
     o.datatype = "range(10, 86400)";
     o.placeholder = "180";
